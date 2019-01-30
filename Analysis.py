@@ -11,7 +11,8 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn import preprocessing
+# from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import math
 
 feat_names = ['Unit', 'CycleNo', 'opset1', 'opset2', 'opset3', 'sensor1', 'sensor2', 'sensor3', 'sensor4', 'sensor5',
@@ -47,9 +48,15 @@ for x in max_cycle.iloc[:, 0]:
     count_cycle = max_cycle.iloc[x-1, 1]
     data_train1.loc[data_train1['Unit'] == x, 'RUL'] = count_cycle - data_train1['CycleNo']
 
-df = data_train1.drop(['RUL','sensor22','sensor23','sensor25','sensor26','sensor24'], axis=1)
+df = data_train1.drop(['RUL','sensor22','sensor23','sensor25','sensor26','sensor24','Unit','CycleNo'], axis=1)
 
-X_train, X_test, y_train, y_test = train_test_split(df, data_train1["RUL"], test_size=0.7, random_state=5)
+min_max_scaler = preprocessing.MinMaxScaler()
+np_scaled = min_max_scaler.fit_transform(df)
+df_normalized = pd.DataFrame(np_scaled)
+
+# print(df_normalized.head())
+
+X_train, X_test, y_train, y_test = train_test_split(df_normalized, data_train1["RUL"], test_size=0.7, random_state=5)
 leg = linear_model.LinearRegression()
 leg.fit(X_train, y_train)
 predictions = leg.predict(X_test)
