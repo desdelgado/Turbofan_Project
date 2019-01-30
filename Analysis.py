@@ -7,11 +7,11 @@ Created on Thu Jan 31 02:04:58 2019
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns; sns.set()
+# import seaborn as sns; sns.set()
 
-data_train1 = pd.read_csv('train_FD001.txt', sep = ' ', header = None)
-data_test1 = pd.read_csv('test_FD001.txt', sep = ' ', header = None)
-data_RUL1 = pd.read_csv('RUL_FD001.txt', sep = ' ', header = None)
+data_train1 = pd.read_csv('./CMAPSSData/train_FD001.txt', sep = ' ', header = None)
+data_test1 = pd.read_csv('./CMAPSSData/test_FD001.txt', sep = ' ', header = None)
+data_RUL1 = pd.read_csv('./CMAPSSData/RUL_FD001.txt', sep = ' ', header = None)
 
 
 unit_1 = data_train1[data_train1[0] == 1]
