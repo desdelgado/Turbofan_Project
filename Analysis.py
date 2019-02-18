@@ -14,26 +14,19 @@ Created on Thu Jan 31 02:04:58 2019
 #%%
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn import preprocessing
 import seaborn as sns; sns.set()
 import time
 import numpy as np
 from pandas.plotting import scatter_matrix
-from sklearn.model_selection import KFold
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import KFold, cross_val_score, GridSearchCV, RandomizedSearchCV, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, ElasticNet
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.ensemble import ExtraTreesRegressor
-from sklearn.ensemble import AdaBoostRegressor
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor, AdaBoostRegressor
 import warnings
 
 # from sklearn.preprocessing import StandardScaler, MinMaxScaler
@@ -124,6 +117,7 @@ num_folds = 7
 seed = 5
  
 X_train, X_test, y_train, y_test = train_test_split(df_normalized, data_train1["RUL"], test_size=0.3, random_state=5)
+
 models = []
 models.append(('LR', LinearRegression()))
 models.append(('LASSO', Lasso()))
@@ -160,6 +154,8 @@ ax1 = fig.add_subplot(111)
 plt.plot(times, 'x', ms = 15)
 ax1.set_xticklabels(names)
 plt.show()
+
+
 """
 fig1 = plt.figure()
 fig1.suptitle('Algoritm vs Time')
@@ -173,21 +169,26 @@ plt.show()
 #is there a way to optimize RandomForests to get it to a low enough MSE that the trade off in time is worth it
 
 rf = RandomForestRegressor(random_state = 42)
-print(rf.get_params())
 
-n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
+n_estimators = [int(x) for x in np.linspace(start = 10, stop = 1000, num = 10)]
+
 # Number of features to consider at every split
 max_features = ['auto', 'sqrt']
+
 # Maximum number of levels in tree
 max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
 max_depth.append(None)
+
 # Minimum number of samples required to split a node
 min_samples_split = [2, 5, 10]
+
 # Minimum number of samples required at each leaf node
 min_samples_leaf = [1, 2, 4]
+
 # Method of selecting samples for training each tree
 bootstrap = [True, False]
 # Create the random grid
+
 random_grid = {'n_estimators': n_estimators,
                'max_features': max_features,
                'max_depth': max_depth,
@@ -195,24 +196,39 @@ random_grid = {'n_estimators': n_estimators,
                'min_samples_leaf': min_samples_leaf,
                'bootstrap': bootstrap}
 
-
-rf_random = RandomizedSearchCV(estimator = rf, param_distributions = random_grid, n_iter = 10, cv = 3, verbose=2, random_state=42, n_jobs = -1)
+rf_random = RandomizedSearchCV(estimator = rf, param_distributions = random_grid, n_iter = 5, cv = 3, verbose=2, random_state=42, n_jobs = -1)
 rf_random.fit(X_train, y_train)
+print(rf_random.best_params_)
+#%%
+#Compare this to the base model 
+#Issue here is that we have zeros in our test labels which is causing accuracy to go go to inf% 
 '''
-
-k_values = numpy.array([1,3,5,7,9,11,13,15,17,19,21])
-param_grid = dict(n_neighbors=k_values)
-model = KNeighborsRegressor()
-kfold = KFold(n_splits=num_folds, random_state=seed)
-grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring = 'neg_mean_squared_error', cv=kfold)
-grid_result = grid.fit(X_train, y_train)
-
-print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-means = grid_result.cv_results_['mean_test_score']
-stds = grid_result.cv_results_['std_test_score']
-params = grid_result.cv_results_['params']
-for mean, stdev, param in zip(means, stds, params):
-    print("%f (%f) with: %r" % (mean, stdev, param))
+Orignal Function pulled from article
+def evaluate(model, test_features, test_labels):
+    predictions = model.predict(test_features)
+    #print(predictions)
+    print(test_labels.describe())
+    errors = abs(predictions - test_labels)
+    #print(errors)
+    mape = 100 * np.mean(errors / test_labels)
+    accuracy = 100 - mape
+    print('Model Performance')
+    print('Average Error: {:0.4f} cycles.'.format(np.mean(errors)))
+    print('Accuracy = {:0.2f}%.'.format(accuracy))
     
-    '''
-    
+    return accuracy
+'''
+def evaluate(model, test_features, test_labels):
+    predictions = model.predict(test_features)
+    #errors = abs(predictions - test_labels)
+    RMSE = (mean_squared_error(test_labels, predictions))**0.5
+    print(RMSE)
+    print('Model Performance')
+    print('Root Mean Squared Error: {:0.4f} cycles.'.format(np.mean(RMSE)))
+
+base_model = RandomForestRegressor(n_estimators = 10, random_state = 42)
+base_model.fit(X_test, y_test)
+base_accuracy = evaluate(base_model, X_test, y_test)
+
+best_random = rf_random.best_estimator_
+random_accuracy = evaluate(best_random, X_test, y_test)
