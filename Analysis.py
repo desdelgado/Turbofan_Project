@@ -20,7 +20,7 @@ import seaborn as sns; sns.set()
 import time
 import numpy as np
 from pandas.plotting import scatter_matrix
-from sklearn.model_selection import KFold, cross_val_score, GridSearchCV, RandomizedSearchCV, train_test_split
+from sklearn.model_selection import KFold, cross_val_score, cross_val_predict, GridSearchCV, RandomizedSearchCV, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, ElasticNet
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.neighbors import KNeighborsRegressor
@@ -76,7 +76,7 @@ plt.title('Correlation between features');
 
 # print(max_cycle.iloc[2, 1])
 
-#%%
+#%% Create the target data set
 for x in max_cycle.iloc[:, 0]:
     count_cycle = max_cycle.iloc[x-1, 1]
     data_train1.loc[data_train1['Unit'] == x, 'RUL'] = count_cycle - data_train1['CycleNo']
@@ -88,26 +88,6 @@ np_scaled = min_max_scaler.fit_transform(df)
 df_normalized = pd.DataFrame(np_scaled)
 df_normalized.columns = df.columns
 
-#%% Make a function that we can quickly test models without having to use copy and paste.  This will help us get an general idea
-#for time and accuracy 
-'''
-def TestModel(x_data, y_data, model):
-    start = time.time()
-    X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.3, random_state=5)
-    
-    t_model = model
-    t_model.fit(X_train, y_train)
-    predictions = t_model.predict(X_test)
-    mse = mean_squared_error(y_test, predictions)
-    print(str(model))
-    print('RMSE = {}'.format(round(mse**(0.5), 3)))
-    print('Time: ' + str(time.time()-start))
-#%% Iterate through different Models
-
-diff_models = [LinearRegression(), RandomForestRegressor(), DecisionTreeRegressor()]
-for test in diff_models:
-    TestModel(df_normalized, data_train1["RUL"], test)
-'''
 #%% Iterate through different models
 #Toggle this on and off for warnings when we write it up can say: Let this on when developing but turned it off cause SVR was giving 
 #us "Future warnings" which have no effect on the quick look 
@@ -155,18 +135,12 @@ plt.plot(times, 'x', ms = 15)
 ax1.set_xticklabels(names)
 plt.show()
 
-
-"""
-fig1 = plt.figure()
-fig1.suptitle('Algoritm vs Time')
-ax1 = fig.add_subplot(111)
-plt.plot(times, mean(results) 'x', ms = 15)
-ax1.set_xticklabels(names)
-plt.show()
-"""
 # Maybe come up with metric for best trade off between RMS and time
+
 #%% At first it looks like linear regression gives us the best method in terms of trading off speed vs accuracy, however, it is already optimized
 #is there a way to optimize RandomForests to get it to a low enough MSE that the trade off in time is worth it
+
+#Dont need to run this every time I have put the parameters into a dictionary in the next section for model performance 
 
 rf = RandomForestRegressor(random_state = 42)
 
@@ -199,36 +173,44 @@ random_grid = {'n_estimators': n_estimators,
 rf_random = RandomizedSearchCV(estimator = rf, param_distributions = random_grid, n_iter = 5, cv = 3, verbose=2, random_state=42, n_jobs = -1)
 rf_random.fit(X_train, y_train)
 print(rf_random.best_params_)
+
 #%%
 #Compare this to the base model 
-#Issue here is that we have zeros in our test labels which is causing accuracy to go go to inf% 
-'''
-Orignal Function pulled from article
+#These come from doing a big random search in the section above
+params = {'n_estimators': 890, 'min_samples_split': 5, 'min_samples_leaf': 2, 'max_features': 'sqrt', 'max_depth': 60, 'bootstrap': True}
+params = {'n_estimators': 600, 'min_samples_split': 10, 'min_samples_leaf': 4, 'max_features': 'sqrt', 'max_depth': 20, 'bootstrap': False}
+
+
 def evaluate(model, test_features, test_labels):
     predictions = model.predict(test_features)
-    #print(predictions)
-    print(test_labels.describe())
-    errors = abs(predictions - test_labels)
-    #print(errors)
-    mape = 100 * np.mean(errors / test_labels)
-    accuracy = 100 - mape
-    print('Model Performance')
-    print('Average Error: {:0.4f} cycles.'.format(np.mean(errors)))
-    print('Accuracy = {:0.2f}%.'.format(accuracy))
-    
-    return accuracy
-'''
-def evaluate(model, test_features, test_labels):
-    predictions = model.predict(test_features)
-    #errors = abs(predictions - test_labels)
     RMSE = (mean_squared_error(test_labels, predictions))**0.5
-    print(RMSE)
     print('Model Performance')
     print('Root Mean Squared Error: {:0.4f} cycles.'.format(np.mean(RMSE)))
 
 base_model = RandomForestRegressor(n_estimators = 10, random_state = 42)
-base_model.fit(X_test, y_test)
+base_model.fit(X_train, y_train)
 base_accuracy = evaluate(base_model, X_test, y_test)
 
-best_random = rf_random.best_estimator_
+best_random = RandomForestRegressor(**params)
+best_random.fit(X_train, y_train)
 random_accuracy = evaluate(best_random, X_test, y_test)
+
+linear_model = LinearRegression()
+linear_model.fit(X_train, y_train)
+linear_accuracy = evaluate(linear_model, X_test, y_test)
+#%%Now do gridsearch around the best parameters we found 
+param_grid = {
+    'bootstrap': [True],
+    'max_depth': [10, 20, 30, 40],
+    'max_features': ['sqrt', 'auto'],
+    'min_samples_leaf': [3, 4, 5],
+    'min_samples_split': [8, 10, 12],
+    'n_estimators': [400, 600, 800, 1000]
+}
+# Create a based model
+rf = RandomForestRegressor()
+# Instantiate the grid search model
+grid_search = GridSearchCV(estimator = rf, param_grid = param_grid, 
+                          cv = 3, n_jobs = -1, verbose = 2)
+grid_search.fit(X_train, y_train)
+grid_search.best_params_
