@@ -1,2 +1,2 @@
-# Turbofan_Project
-Looking at predicting failure in simulated turbofan data
+# Turbofan Project
+Can we predict the failure of jet engines using sensor data?
